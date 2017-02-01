@@ -1,0 +1,152 @@
+#!/bin/bash
+
+function print_average_median() {
+	
+	#stores arguments passed in to an array
+	args=("$@")
+	
+	#calculating sum
+	sum=0
+	for number in $@; do
+		sum=$(($sum + $number))
+	done
+
+
+	#divide by number of arguments to find whole number average
+	average=`expr $sum / $#`
+
+	#do cute math stuff to figure out decimal point
+	remainder=`expr $sum % $#`
+	remainder_times10=`expr $remainder \* 10`
+	decimal_point=`expr $remainder_times10 / $#`
+	
+	
+	#if we need to round up, add 1 to the whole number average
+	if [ $decimal_point -ge 5 ]
+	then
+		average=`expr $average + 1`
+	fi
+
+	#pipe the echo of the arguments into the sort function
+	my_sorted=`
+	for number in $@; do
+		echo $number
+	done | sort`
+
+	#find the median position
+	position=`expr $# / 2`	
+
+	#pass position into function to find median value
+	median=`print_an_argument $position $my_sorted`
+	
+	#print out results
+	echo "  $average		  $median"
+}
+
+function print_an_argument() {
+
+	#store median position
+	position=$1;
+
+	#shift to the numbers that were passed
+	shift
+
+	#increment until we hit the median position
+	counter=0
+	while [ $counter -lt $position ];
+	do
+		shift;
+		counter=`expr $counter + 1 `
+	done
+
+
+	#this isn't actually echoing, it's returning the median value into the median variable in print_average_median()
+	echo $1
+}
+
+function put_in_columns() {
+
+	counter=0
+
+	#while number of arguments is > 0
+	while [ $# -gt 0 ]; do
+
+
+		#compare legnth of array to counter
+		if [ ${#columns[@]} -le $counter ]
+		then
+			columns+=($1)
+		
+		else
+			#append onto the column array
+			columns[$counter]="${columns[$counter]} $1"
+
+		fi
+
+		shift
+		counter=`expr $counter + 1`
+
+	done
+}
+
+
+
+#declare array for columns
+columns=()
+
+while [ $# -gt 0 ] ; do
+	case $1 in
+	-r*) user_choice=rows ;;
+	-c*) user_choice=cols ;;
+	-*) echo unknown argument; exit 1 ;;
+	*)  break;;
+	esac
+	shift
+done
+
+#if length of string is 0
+if [ -z "$user_choice" ]
+then
+	echo "Usage: stats {-rows|-cols} [file]"
+	exit 1
+fi
+
+
+#read from this file
+if [ $# -eq 1 ] ; then
+	if [ \! -r "$1" ]
+	then
+		echo "stats: cannot read $1"
+		exit 1
+	fi
+
+	exec < "$1"
+
+
+
+#too many arguments
+elif [ $# -gt 1 ] ; 
+then
+	echo "Usage: $0 {-r | -c} [filename]"
+	exit 1;
+fi
+
+
+echo "Average		Median"
+
+#read numbers from file
+while read -r LINE ; do
+	if [ $user_choice == rows ] ; then
+		#echo "Average		Median"
+		print_average_median $LINE
+	else
+		put_in_columns $LINE
+	fi
+done
+
+#for the length of the array, print average/median
+for col in "${columns[@]}"; do
+	print_average_median $col	
+done
+
+exit 0
